@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeWatch Canlı Senkronizasyon</title>
+    <style>
+        body { background: #0b0f19; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 50px 20px; }
+        .btn { background: linear-gradient(90deg, #00f2fe, #4facfe); border: none; padding: 20px 40px; font-size: 18px; font-weight: bold; color: #fff; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(0,242,254,0.4); }
+        .status { margin-top: 30px; font-size: 20px; color: #00ffcc; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>SafeWatch Real-Time Sync</h1>
+    <p>Uygulama yok, kurulum yok. Doğrudan tarayıcı üzerinden canlı veri akışı.</p>
+    <br><br>
+    <button class="btn" onclick="canliAkisBaslat()">Saate Bağlan ve Canlı Yayını Başlat</button>
+    <div class="status" id="status">Cihaz bekleniyor...</div>
+
+<script>
+let bleserver = null;
+let txCharacteristic = null;
+
+async function canliAkisBaslat() {
+    document.getElementById("status").innerText = "Cihaz aranıyor...";
+    try {
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'SafeWatch_PRO' }],
+            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+        });
+
+        bleserver = await device.gatt.connect();
+        const service = await bleserver.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+        txCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+        
+        document.getElementById("status").innerText = "CANLI VERİ AKIŞI AKTİF!";
+        
+        // HER 1 SANİYEDE BİR TELEFON VERİSİNİ SAATE FIRLATAN DÖNGÜ
+        setInterval(async () => {
+            if(txCharacteristic) {
+                let simdi = new Date();
+                let saat = String(simdi.getHours()).padStart(2, '0') + ":" + String(simdi.getMinutes()).padStart(2, '0') + ":" + String(simdi.getSeconds()).padStart(2, '0');
+                let tarih = String(simdi.getDate()).padStart(2, '0') + "." + String(simdi.getMonth() + 1).padStart(2, '0') + "." + simdi.getFullYear();
+                let gunler = ["PAZAR", "PAZARTESI", "SALI", "CARSAMBA", "PERSEMBE", "CUMA", "CUMARTESI"];
+                let gun = gunler[simdi.getDay()];
+                
+                // Telefon konumundan canlı hava durumunu çekecek simülasyon/API tabanı (Örn sabit veriler, istiyorsan buraya tarayıcı fetch de atabiliriz)
+                let temp = "24.2"; 
+                let hum = "55";
+                let press = "1012";
+
+                let paket = `${saat}|${tarih}|${gun}|${temp}|${hum}|${press}`;
+                let encoder = new TextEncoder();
+                await txCharacteristic.writeValue(encoder.encode(paket));
+            }
+        }, 1000);
+
+    } catch (error) {
+        document.getElementById("status").innerText = "Hata: " + error;
+    }
+}
+</script>
+</body>
+</html>
